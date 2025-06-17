@@ -1,13 +1,21 @@
-FROM node:18
+# Utilise une image avec Java
+FROM gradle:8.5.0-jdk17 AS builder
 
-WORKDIR /app
+# Copie le code dans le conteneur
+COPY . /home/gradle/project
+WORKDIR /home/gradle/project
 
-COPY package*.json ./
+# Build le projet
+RUN gradle build --no-daemon
 
-RUN npm install
+# Étape de production
+FROM openjdk:17
 
-COPY . .
+# Copie le JAR compilé
+COPY --from=builder /home/gradle/project/build/libs/*.jar app.jar
 
-EXPOSE 3000
+# Lance l'app
+CMD ["java", "-jar", "app.jar"]
 
-CMD ["npm", "start"]
+# Port exposé (ajuste si besoin)
+EXPOSE 8080
