@@ -10,7 +10,6 @@ plugins {
     id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
-
 group = "io.github.misterassm"
 version = "0.3.2"
 
@@ -70,14 +69,12 @@ kotlin {
         else -> throw GradleException("Host OS is not supported in Kotlin/Native.")
     }
 
-
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation(KotlinX.serialization.json)
-                implementation(KotlinX.datetime)
-
-                compileOnly(Ktor.client.core)
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
+                implementation("io.ktor:ktor-client-core:2.3.9")
             }
         }
         val commonTest by getting {
@@ -87,7 +84,7 @@ kotlin {
         }
         val jvmMain by getting {
             dependencies {
-                implementation(Ktor.client.okHttp)
+                implementation("io.ktor:ktor-client-okhttp:2.3.9")
             }
         }
         val jvmTest by getting
@@ -189,7 +186,6 @@ publishing {
             scm {
                 url.set("https://github.com/MisterAssm/pronote-api")
             }
-
         }
     }
 }
