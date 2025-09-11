@@ -22,7 +22,7 @@ kotlin {
     jvm {
         withJava()
         compilations.all {
-            kotlinOptions.jvmTarget = "1.8"
+            kotlinOptions.jvmTarget = "17" // Updated to match your JDK 17
             kotlinOptions.freeCompilerArgs = listOf(
                 "-opt-in=kotlin.RequiresOptIn",
                 "-Xjsr305=strict"
@@ -36,16 +36,18 @@ kotlin {
     js(IR) {
         nodejs()
         compilations.all {
-            compileKotlinTask.kotlinOptions.freeCompilerArgs += listOf("-Xerror-tolerance-policy=SEMANTIC")
+            // Fixed deprecated access to compileKotlinTask
+            kotlinOptions.freeCompilerArgs += listOf("-Xerror-tolerance-policy=SEMANTIC")
         }
     }
 
     val hostOs = System.getProperty("os.name")
     val isMingwX64 = hostOs.startsWith("Windows")
+    // Renamed to avoid naming conflict with default hierarchy template
     val nativeTarget = when {
-        hostOs == "Mac OS X" -> macosX64("native")
-        hostOs == "Linux" -> linuxX64("native")
-        isMingwX64 -> mingwX64("native")
+        hostOs == "Mac OS X" -> macosX64("nativeTarget")
+        hostOs == "Linux" -> linuxX64("nativeTarget")
+        isMingwX64 -> mingwX64("nativeTarget")
         else -> throw GradleException("Host OS is not supported in Kotlin/Native.")
     }
 
@@ -54,7 +56,8 @@ kotlin {
             dependencies {
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinxSerializationVersion")
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:$kotlinxDatetimeVersion")
-                compileOnly("io.ktor:ktor-client-core:$ktorVersion")
+                // Changed from compileOnly to implementation for native compatibility
+                implementation("io.ktor:ktor-client-core:$ktorVersion")
             }
         }
         val commonTest by getting {
@@ -79,8 +82,8 @@ kotlin {
                 implementation(kotlin("test-js"))
             }
         }
-        val nativeMain by getting
-        val nativeTest by getting
+        val nativeTargetMain by getting
+        val nativeTargetTest by getting
     }
 }
 
