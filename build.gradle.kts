@@ -1,6 +1,5 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
-import java.util.*
 
 plugins {
     `maven-publish`
@@ -22,11 +21,14 @@ kotlin {
         withJava()
 
         compilations.all {
-            kotlinOptions.jvmTarget = "1.8"
-            kotlinOptions.freeCompilerArgs = listOf(
-                "-opt-in=kotlin.RequiresOptIn",
-                "-Xjsr305=strict"
-            )
+            kotlinOptions {
+                // 🔥 Correction ici : avant c'était "1.8"
+                jvmTarget = "17"
+                freeCompilerArgs = listOf(
+                    "-opt-in=kotlin.RequiresOptIn",
+                    "-Xjsr305=strict"
+                )
+            }
         }
 
         testRuns["test"].executionTask.configure {
@@ -72,6 +74,18 @@ kotlin {
                 implementation(kotlin("test-js"))
             }
         }
+    }
+}
+
+// 🔥 Utilisation recommandée de la JVM Toolchain Kotlin
+kotlin {
+    jvmToolchain(17)
+}
+
+// 🔥 Optionnel : forcer aussi la toolchain Java
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
     }
 }
 
