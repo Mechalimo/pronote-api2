@@ -1,33 +1,34 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
+import java.util.*
 
 plugins {
+    `maven-publish`
+    signing
     kotlin("multiplatform") version "1.9.24"
     kotlin("plugin.serialization") version "1.9.24"
     id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
-group = "com.github.MisterAssm"
+group = "io.github.misterassm"
 version = "0.3.2"
 
 repositories {
     mavenCentral()
 }
 
-val kotlinxSerializationVersion = "1.7.3"
-val kotlinxDatetimeVersion = "0.6.1"
-val ktorVersion = "3.0.0"
-
 kotlin {
     jvm {
         withJava()
+
         compilations.all {
-            kotlinOptions.jvmTarget = "17" // Updated to match your JDK 17
+            kotlinOptions.jvmTarget = "1.8"
             kotlinOptions.freeCompilerArgs = listOf(
                 "-opt-in=kotlin.RequiresOptIn",
                 "-Xjsr305=strict"
             )
         }
+
         testRuns["test"].executionTask.configure {
             useJUnitPlatform()
         }
@@ -35,29 +36,18 @@ kotlin {
 
     js(IR) {
         nodejs()
-        compilations.all {
-            // Fixed deprecated access to compileKotlinTask
-            kotlinOptions.freeCompilerArgs += listOf("-Xerror-tolerance-policy=SEMANTIC")
-        }
-    }
 
-    val hostOs = System.getProperty("os.name")
-    val isMingwX64 = hostOs.startsWith("Windows")
-    // Renamed to avoid naming conflict with default hierarchy template
-    val nativeTarget = when {
-        hostOs == "Mac OS X" -> macosX64("nativeTarget")
-        hostOs == "Linux" -> linuxX64("nativeTarget")
-        isMingwX64 -> mingwX64("nativeTarget")
-        else -> throw GradleException("Host OS is not supported in Kotlin/Native.")
+        compilations.all {
+            compileKotlinTask.kotlinOptions.freeCompilerArgs += listOf("-Xerror-tolerance-policy=SEMANTIC")
+        }
     }
 
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinxSerializationVersion")
-                implementation("org.jetbrains.kotlinx:kotlinx-datetime:$kotlinxDatetimeVersion")
-                // Changed from compileOnly to implementation for native compatibility
-                implementation("io.ktor:ktor-client-core:$ktorVersion")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
+                compileOnly("io.ktor:ktor-client-core:2.3.12")
             }
         }
         val commonTest by getting {
@@ -67,7 +57,7 @@ kotlin {
         }
         val jvmMain by getting {
             dependencies {
-                implementation("io.ktor:ktor-client-okhttp:$ktorVersion")
+                implementation("io.ktor:ktor-client-okhttp:2.3.12")
             }
         }
         val jvmTest by getting
@@ -82,8 +72,6 @@ kotlin {
                 implementation(kotlin("test-js"))
             }
         }
-        val nativeTargetMain by getting
-        val nativeTargetTest by getting
     }
 }
 
@@ -111,4 +99,40 @@ registerShadowJar("jvm")
 
 val javadocJar by tasks.registering(Jar::class) {
     archiveClassifier.set("javadoc")
+}
+
+val jvmShadowJar by tasks.named("jvmShadowJar")
+
+publishing {
+    publications.withType<MavenPublication> {
+        artifact(jvmShadowJar)
+        artifact(javadocJar.get())
+
+        pom {
+            name.set("Kronote")
+            description.set("Library to easily retrieve information from a Pronote server (Index-Education) for JVM/JS")
+            url.set("https://github.com/MisterAssm/pronote-api")
+
+            licenses {
+                license {
+                    name.set("MIT")
+                    url.set("https://opensource.org/licenses/MIT")
+                }
+            }
+            developers {
+                developer {
+                    id.set("MisterAssm")
+                    name.set("Assim ZEMOUCHI")
+                    email.set("assim.zpr@gmail.com")
+                }
+            }
+            scm {
+                url.set("https://github.com/MisterAssm/pronote-api")
+            }
+        }
+    }
+}
+
+signing {
+    sign(publishing.publications)
 }
