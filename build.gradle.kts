@@ -1,10 +1,7 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
-import java.util.*
 
 plugins {
-    `maven-publish`
-    signing
     kotlin("multiplatform") version "1.9.24"
     kotlin("plugin.serialization") version "1.9.24"
     id("com.github.johnrengelman.shadow") version "8.1.1"
