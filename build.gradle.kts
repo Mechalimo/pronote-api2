@@ -22,7 +22,7 @@ kotlin {
         withJava()
 
         compilations.all {
-            kotlinOptions.jvmTarget = "17" // 🔥 changé de 1.8 à 17
+            kotlinOptions.jvmTarget = "17"
             kotlinOptions.freeCompilerArgs = listOf(
                 "-opt-in=kotlin.RequiresOptIn",
                 "-Xjsr305=strict"
@@ -86,6 +86,11 @@ fun registerShadowJar(targetName: String) {
                     archiveAppendix.set(targetName)
                     archiveClassifier.set("all")
                     mergeServiceFiles()
+
+                    // 🔥 Ajout du Main-Class dans le manifest
+                    manifest {
+                        attributes["Main-Class"] = "fr.misterassm.kronote.MainKt"
+                    }
                 }
                 getByName("${targetName}Jar") {
                     finalizedBy(shadowJar)
