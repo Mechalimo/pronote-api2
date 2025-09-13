@@ -1,6 +1,5 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
-import java.util.*
 
 plugins {
     `maven-publish`
@@ -36,9 +35,9 @@ kotlin {
 
     js(IR) {
         nodejs()
-
         compilations.all {
-            compileKotlinTask.kotlinOptions.freeCompilerArgs += listOf("-Xerror-tolerance-policy=SEMANTIC")
+            compileKotlinTask.kotlinOptions.freeCompilerArgs +=
+                listOf("-Xerror-tolerance-policy=SEMANTIC")
         }
     }
 
@@ -51,14 +50,10 @@ kotlin {
             }
         }
         val commonTest by getting {
-            dependencies {
-                implementation(kotlin("test"))
-            }
+            dependencies { implementation(kotlin("test")) }
         }
         val jvmMain by getting {
-            dependencies {
-                implementation("io.ktor:ktor-client-okhttp:2.3.12")
-            }
+            dependencies { implementation("io.ktor:ktor-client-okhttp:2.3.12") }
         }
         val jvmTest by getting
         val jsMain by getting {
@@ -68,9 +63,7 @@ kotlin {
             }
         }
         val jsTest by getting {
-            dependencies {
-                implementation(kotlin("test-js"))
-            }
+            dependencies { implementation(kotlin("test-js")) }
         }
     }
 }
@@ -87,7 +80,7 @@ fun registerShadowJar(targetName: String) {
                     archiveClassifier.set("all")
                     mergeServiceFiles()
 
-                    // 🔥 Ajout du Main-Class dans le manifest
+                    // ✅ Ajout du Main-Class
                     manifest {
                         attributes["Main-Class"] = "fr.misterassm.kronote.MainKt"
                     }
@@ -142,7 +135,16 @@ signing {
     sign(publishing.publications)
 }
 
-// ✅ Désactive les tâches Kotlin/JS lock qui bloquent le build en Docker
-tasks.matching { it.name == "kotlinStoreYarnLock" || it.name == "kotlinUpgradePackageLock" }.configureEach {
+// ✅ Toujours injecter le Main-Class dans tous les JAR
+tasks.withType<Jar> {
+    manifest {
+        attributes["Main-Class"] = "fr.misterassm.kronote.MainKt"
+    }
+}
+
+// ✅ Désactiver les tâches Kotlin/JS lock en Docker
+tasks.matching {
+    it.name == "kotlinStoreYarnLock" || it.name == "kotlinUpgradePackageLock"
+}.configureEach {
     enabled = false
 }
