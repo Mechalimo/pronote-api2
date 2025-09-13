@@ -1,16 +1,35 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
+import java.util.*
 
 plugins {
     `maven-publish`
     signing
-    kotlin("multiplatform") version "1.9.24"
-    kotlin("plugin.serialization") version "1.9.24"
-    id("com.github.johnrengelman.shadow") version "8.1.1"
+    kotlin("multiplatform")
+    kotlin("plugin.serialization")
+    id("com.github.johnrengelman.shadow")
 }
 
 group = "io.github.misterassm"
 version = "0.3.2"
+
+ext["signing.keyId"] = null
+ext["signing.password"] = null
+ext["signing.secretKeyRingFile"] = null
+ext["ossrhUsername"] = null
+ext["ossrhPassword"] = null
+
+with(project.rootProject.file("local.properties")) {
+    if (exists()) {
+        reader().use {
+            Properties().apply { load(it) }
+        }.onEach { (name, value) ->
+            ext[name.toString()] = value
+        }
+    }
+}
+
+fun getExtraString(name: String) = ext[name]?.toString()
 
 repositories {
     mavenCentral()
@@ -21,7 +40,7 @@ kotlin {
         withJava()
 
         compilations.all {
-            kotlinOptions.jvmTarget = "17"
+            kotlinOptions.jvmTarget = "1.8"
             kotlinOptions.freeCompilerArgs = listOf(
                 "-opt-in=kotlin.RequiresOptIn",
                 "-Xjsr305=strict"
@@ -35,25 +54,40 @@ kotlin {
 
     js(IR) {
         nodejs()
+
         compilations.all {
-            compileKotlinTask.kotlinOptions.freeCompilerArgs +=
-                listOf("-Xerror-tolerance-policy=SEMANTIC")
+            compileKotlinTask.kotlinOptions.freeCompilerArgs += listOf("-Xerror-tolerance-policy=SEMANTIC")
         }
     }
+
+    val hostOs = System.getProperty("os.name")
+    val isMingwX64 = hostOs.startsWith("Windows")
+    val nativeTarget = when {
+        hostOs == "Mac OS X" -> macosX64("native")
+        hostOs == "Linux" -> linuxX64("native")
+        isMingwX64 -> mingwX64("native")
+        else -> throw GradleException("Host OS is not supported in Kotlin/Native.")
+    }
+
 
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
-                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
-                compileOnly("io.ktor:ktor-client-core:2.3.12")
+                implementation(KotlinX.serialization.json)
+                implementation(KotlinX.datetime)
+
+                compileOnly(Ktor.client.core)
             }
         }
         val commonTest by getting {
-            dependencies { implementation(kotlin("test")) }
+            dependencies {
+                implementation(kotlin("test"))
+            }
         }
         val jvmMain by getting {
-            dependencies { implementation("io.ktor:ktor-client-okhttp:2.3.12") }
+            dependencies {
+                implementation(Ktor.client.okHttp)
+            }
         }
         val jvmTest by getting
         val jsMain by getting {
@@ -63,7 +97,24 @@ kotlin {
             }
         }
         val jsTest by getting {
-            dependencies { implementation(kotlin("test-js")) }
+            dependencies {
+                implementation(kotlin("test-js"))
+            }
+        }
+        val nativeMain by getting
+        val nativeTest by getting
+    }
+
+    val publicationsFromMainHost = listOf(jvm(), js()).map { it.name } + "kotlinMultiplatform"
+
+    publishing {
+        publications {
+            matching { it.name in publicationsFromMainHost }.all {
+                val targetPublication = this@all
+                tasks.withType<AbstractPublishToMaven>()
+                    .matching { it.publication == targetPublication }
+                    .configureEach { onlyIf { findProperty("isMainHost") == "true" } }
+            }
         }
     }
 }
@@ -79,11 +130,6 @@ fun registerShadowJar(targetName: String) {
                     archiveAppendix.set(targetName)
                     archiveClassifier.set("all")
                     mergeServiceFiles()
-
-                    // ✅ Ajout du Main-Class
-                    manifest {
-                        attributes["Main-Class"] = "fr.misterassm.kronote.MainKt"
-                    }
                 }
                 getByName("${targetName}Jar") {
                     finalizedBy(shadowJar)
@@ -102,13 +148,28 @@ val javadocJar by tasks.registering(Jar::class) {
 val jvmShadowJar by tasks.named("jvmShadowJar")
 
 publishing {
+    // Configure maven central repository
+    repositories {
+        maven {
+            name = "sonatype"
+            setUrl("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
+            credentials {
+                username = getExtraString("ossrhUsername")
+                password = getExtraString("ossrhPassword")
+            }
+        }
+    }
+
+    // Configure all publications
     publications.withType<MavenPublication> {
+
         artifact(jvmShadowJar)
         artifact(javadocJar.get())
 
+        // Provide artifacts information requited by Maven Central
         pom {
             name.set("Kronote")
-            description.set("Library to easily retrieve information from a Pronote server (Index-Education) for JVM/JS")
+            description.set("Library to easily retrieve information from a Pronote server (Index-Education) for JVM/JS/Native")
             url.set("https://github.com/MisterAssm/pronote-api")
 
             licenses {
@@ -127,24 +188,11 @@ publishing {
             scm {
                 url.set("https://github.com/MisterAssm/pronote-api")
             }
+
         }
     }
 }
 
 signing {
     sign(publishing.publications)
-}
-
-// ✅ Toujours injecter le Main-Class dans tous les JAR
-tasks.withType<Jar> {
-    manifest {
-        attributes["Main-Class"] = "fr.misterassm.kronote.MainKt"
-    }
-}
-
-// ✅ Désactiver les tâches Kotlin/JS lock en Docker
-tasks.matching {
-    it.name == "kotlinStoreYarnLock" || it.name == "kotlinUpgradePackageLock"
-}.configureEach {
-    enabled = false
 }
